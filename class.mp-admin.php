@@ -17,9 +17,11 @@ class MP_Admin {
 		add_action( 'admin_menu', array( 'MP_Admin', 'memberpress_data_admin_menu' ) );
 	}
 
-	public static function load_resources() {
+	public static function load_resources( $hook_suffix ) {
+        if ( 'settings_page_mp-endpoint-api' == $hook_suffix ) {
 			wp_register_style( 'mp-admin.css', plugin_dir_url( __FILE__ ) . 'assets/css/mp-admin.css', array(), MP_VERSION );
 			wp_enqueue_style( 'mp-admin.css');
+        }
 	}
 
 	/*
@@ -31,7 +33,55 @@ class MP_Admin {
 
 	public static function mp_endpoint_data() {
 		// If we click on the refresh link, we will call the ajax endpoint to refresh the data.
-		if ( !empty( $_GET['action'] ) && "refresh" == $_GET['action'] ) {
+	?>
+	<div class="page-title-box">
+	<img src="<?php echo plugin_dir_url(__FILE__); ?>assets/images/mp-logo-horiz-CMYK.jpg" width="452" height="72">
+	</div>
+	<div class="wrap">
+	<h1 class="wp-heading-inline"><?php echo __('API Data', 'mp' ); ?></h1>
+	<a href="<?php echo admin_url('options-general.php?page=mp-endpoint-api&action=refresh'); ?>" class="page-title-action">Refresh Data</a>
+	<hr class="wp-header-end">
+        <?php
+        $memberpress_list = new MemberPress_List();
+        $memberpress_list->prepare_items();
+        $memberpress_list->display();
+        ?>
+	</div>
+	<?php		
+	}
+}
+
+if ( ! class_exists( 'WP_List_Table' ) ) {
+    require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+}
+
+class MemberPress_List extends WP_list_Table {
+    public function __construct() {
+        parent::__construct( [
+            'singular' => __( 'MemberPress List', 'mp' ),
+            'plural' => __( 'MemberPress List', 'mp' ),
+            'ajax' => false
+        ] );
+    }
+    public function prepare_items() {
+        $columns = $this->get_columns();
+        $hidden = $this->get_hidden_columns();
+        $sortable = $this->get_sortable_columns();
+        
+        $data = $this->table_data();
+
+        $this->_column_headers = array( $columns, $hidden, $sortable );
+        $this->items = $data;
+    }
+    public function get_hidden_columns() {
+        return array();
+    }
+    public function get_sortable_columns() {
+        return array( );
+    }
+    public function table_data() {
+        $action = filter_input( INPUT_GET, 'action', FILTER_SANITIZE_STRING );
+		if ( !empty( $action ) && "refresh" == $action ) {
 
 			 wp_remote_post(
 				admin_url( 'admin-ajax.php' ),
@@ -43,73 +93,47 @@ class MP_Admin {
 				)
 			);
 		}
-			$endpoint_data = get_transient( 'memberpress_endpoint' );
+        $endpoint_data = get_transient( 'memberpress_endpoint' );
+        $data = array();
 
-	?>
-	<div class="page-title-box">
-	<img src="<?php echo plugin_dir_url(__FILE__); ?>assets/images/mp-logo-horiz-CMYK.jpg" width="452" height="72">
-	</div>
-	<div class="wrap">
-	<h1 class="wp-heading-inline">API Data</h1>
-	<a href="<?php echo admin_url('options-general.php?page=mp-endpoint-api&action=refresh'); ?>" class="page-title-action">Refresh Data</a>
-	<hr class="wp-header-end">
-
-	<table class="wp-list-table widefat fixed striped pages">
-		<thead>
-		<tr>
-			<th scope="col" id="title" class="manage-column column-id column-primary">ID</th>
-			<th scope="col" id="title" class="manage-column column-fname">Fname</th>
-			<th scope="col" id="title" class="manage-column column-lname">Lname</th>
-			<th scope="col" id="title" class="manage-column column-email">Email</th>
-			<th scope="col" id="title" class="manage-column column-date">Date</th>
-		</tr>
-		</thead>
-		<tbody id="the-list">
-			<?php
-		if ( empty( $endpoint_data ) || false === $endpoint_data ) {
-		?>
-			<tr>
-				<td colspan="5">There is no available data from the API at this time.</td>
-			</tr>
-		<?php
-		} else {
-			foreach ( $endpoint_data as $data ) {
-
-				if ( null !== $data && isset ( $data->rows ) ) {
-					foreach ( $data->rows as $row ) {
-					?>
-						<tr id="post-" class="iedit author-self level-0 post-3 type-page status-draft hentry entry">
-							<td class="id column-id" data-colname="id"><?php echo $row->id; ?></td>
-							<td class="fname column-fname" data-colname="fname"><?php echo $row->fname; ?></td>
-							<td class="id column-lname" data-colname="lname"><?php echo $row->lname; ?></td>
-							<td class="email column-email" data-colname="email"><?php echo $row->email; ?></td>
-							<td class="date column-date" data-colname="date"><?php echo date( get_option( 'date_format'), $row->date ); ?></td>
-						</tr>
-			<?php
+		if ( !empty( $endpoint_data ) && false !== $endpoint_data ) {
+			foreach ( $endpoint_data as $edata ) {
+				if ( null !== $edata && isset ( $edata->rows ) ) {
+					foreach ( $edata->rows as $row ) {
+                        $data[] = array(
+                            'id' => $row->id,
+                            'fname' => $row->fname,
+                            'lname' => $row->lname,
+                            'email' => $row->email,
+                            'date' => date( get_option( 'date_format'), $row->date )
+                        );
 					}
 				}
 			}
-		?>
-
-		<?php
 		}
-		?>
-				</tbody>
 
-		<tfoot>
-		<tr>
-		<tr>
-			<th scope="col" id="title" class="manage-column column-id column-primary">ID</th>
-			<th scope="col" id="title" class="manage-column column-fname">Fname</th>
-			<th scope="col" id="title" class="manage-column column-lname">Lname</th>
-			<th scope="col" id="title" class="manage-column column-email">Email</th>
-			<th scope="col" id="title" class="manage-column column-date">Date</th>
-		</tr>
-		</tr>
-		</tfoot>
+        return $data;
+    }
+    function get_columns() {
+        $columns = [
+            'id' => __( 'ID', 'mp' ),
+            'fname' => __( 'First Name', 'mp' ),
+            'lname' => __( 'Last Name', 'mp' ),
+            'email' => __( 'Email', 'mp' ),
+            'date' => __( 'Date', 'mp' ),
+        ];
 
-	</table>
-	</div>
-	<?php		
-	}
+        return $columns;
+    }
+    function column_default( $item, $column_name ) {
+        switch( $column_name ) {
+            case 'id':
+            case 'fname':
+            case 'lname':
+            case 'email':
+            case 'date':
+            default:
+                return $item[$column_name ];
+        }
+    }
 }

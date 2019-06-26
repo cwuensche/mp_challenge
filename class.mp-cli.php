@@ -8,9 +8,9 @@ class MP_CLI {
 		$saved_endpoint_data = get_transient( 'memberpress_endpoint' );
 		if ( false !== $saved_endpoint_data ) {
 			delete_transient( 'memberpress_endpoint' );
-			WP_CLI::success( 'You may now fetch new data from the endpoint!' );
+			WP_CLI::success( __('You may now fetch new data from the endpoint!', 'mp' ) );
 		} else {
-			WP_CLI::error( 'No data saved to clear from the memberpress endpoint.' );
+			WP_CLI::error( __('No data saved to clear from the memberpress endpoint.', 'mp' ) );
 		}
 	}
 }
